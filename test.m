@@ -2,6 +2,7 @@
 % clear;
 % function extract_histone(path_to_histone, path_to_segmentation, output_path, output_name, frames_to_extract)
 
+addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 

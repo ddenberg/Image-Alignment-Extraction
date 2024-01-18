@@ -2,6 +2,7 @@
 % clear;
 function extract_TF(path_to_TF, path_to_segmentation, tform_path, output_path, output_name, frames_to_extract, numThreads)
 
+addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 

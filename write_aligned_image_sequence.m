@@ -1,6 +1,7 @@
 clc;
 clear;
 
+addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 

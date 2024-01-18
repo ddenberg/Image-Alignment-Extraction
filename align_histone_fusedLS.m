@@ -1,6 +1,7 @@
 clc;
 clear;
 
+addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 
@@ -33,7 +34,7 @@ crop_z = 90;
 
 % downsample factor (list of values for registration steps)
 downsample_factor = [0.25];
-sigma_init_rigid = [1e-1];
+sigma_init = [1e-1];
 max_gen_init = [100];
 population_size_init = [10];
 tol = 1e-5;
@@ -152,7 +153,7 @@ for ii = 1:length(frames_to_align)
         LS_ds = isotropicSample_bilinear(LS_crop, resXY, resZ, downsample_factor(jj));
         histone_ds = isotropicSample_bilinear(histone_crop, resXY, resZ, downsample_factor(jj));
 
-        sigma = sigma_init_rigid(jj);
+        sigma = sigma_init(jj);
         max_gen = max_gen_init(jj);
         population_size = population_size_init(jj);
 

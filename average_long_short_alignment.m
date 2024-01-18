@@ -1,6 +1,8 @@
 clc;
 clear;
 
+addpath('utils');
+
 align_folder = './output/230212_st6/align_long_short';
 
 frames_to_align = 50:10:130;

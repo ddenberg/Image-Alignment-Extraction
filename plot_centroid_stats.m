@@ -1,7 +1,10 @@
 clc;
 clear;
 
-segmentation_tform_path = './output/230917_st10/histone_centers';
+addpath('utils');
+
+% segmentation_tform_path = './output/230917_st10/histone_centers';
+segmentation_tform_path = './output/231214_stack9/cdx2_centers';
 
 [mat_filenames, mat_filename_folders] = get_filenames(segmentation_tform_path, {'.mat'}, {});
 mat_frames = get_frame_ids(mat_filenames);
@@ -32,7 +35,7 @@ end
 
 centroid_diff_mag = vecnorm(diff(centroid, 1, 1), 2, 2);
 
-plot(mat_frames, final_loss);
+% plot(mat_frames, final_loss);
 
 return;
 output_path = './output/230521_st8/Ch2long_centers';

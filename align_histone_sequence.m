@@ -1,6 +1,7 @@
 clc;
 clear;
 
+addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 addpath('PC_IoU');
@@ -24,24 +25,13 @@ frame_pairs = [start_frame:end_frame-1;
 numThreads = 6;
 
 % crop box for increasing performance
-% hpair = [650, 650+825];
-% vpair = [270, 270+735];
-% zpair = [5, 72];
-% hpair = [580, 580+750];
-% vpair = [320, 320+750];
-% zpair = [35, 115];
-
-% Stack 19
-% hpair = [630, 630+870];
-% vpair = [260, 260+840];
-% zpair = [4, 90];
 crop_h = 900;
 crop_v = 900;
 crop_z = 90;
 
 % downsample factor (list of values for registration steps)
 downsample_factor = [0.25];
-sigma_init_rigid = [1e-2];
+sigma_init = [1e-2];
 max_gen_init = [100];
 population_size_init = [10];
 tol = 1e-5;
@@ -137,7 +127,7 @@ for ii = 1:size(frame_pairs, 1)
         nuc2_ds = isotropicSample_bilinear(nuc_crop2, resXY, resZ, downsample_factor(jj));
 
         % initialize parameters for optimization
-        sigma = sigma_init_rigid(jj);
+        sigma = sigma_init(jj);
         max_gen = max_gen_init(jj);
         population_size = population_size_init(jj);
 

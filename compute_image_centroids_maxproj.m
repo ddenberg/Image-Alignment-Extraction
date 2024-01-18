@@ -2,6 +2,7 @@
 % clear;
 function compute_image_centroids_maxproj(maxproj_file, image_path, output_path, frames_to_compute, numThreads)
 
+addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 addpath('PC_IoU');
@@ -27,7 +28,7 @@ max_zscore = 25;
 min_percentile = 1;
 max_percentile = 99;
 min_radius = 150;
-max_radius = 250;
+max_radius = 400;
 population_size = 16;
 
 % anisotropy parameters
@@ -36,7 +37,8 @@ resZ = 2.0;
 
 % read in nuclear images
 % img = readKLBstack(maxproj_file, numThreads);
-img = tiffreadVolume(maxproj_file);
+% img = tiffreadVolume(maxproj_file);
+img = h5read(maxproj_file, '/maxproj');
 
 % normalize images
 P = prctile(img, [min_percentile, max_percentile], 'all');

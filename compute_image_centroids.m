@@ -2,6 +2,7 @@
 % clear;
 % function compute_image_centroids(image_path, output_path, first_frame, last_frame)
 
+addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 addpath('PC_IoU');

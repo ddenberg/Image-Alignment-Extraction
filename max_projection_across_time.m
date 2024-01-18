@@ -1,20 +1,19 @@
 % clc;
 % clear;
-% function extract_histone(path_to_histone, path_to_segmentation, output_path, output_name, frames_to_extract)
+function max_projection_across_time(path_to_images, output, frames_to_extract, numThreads)
 
+addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 
-path_to_images = '/scratch/gpfs/ddenberg/230917_st10/histone';
+% path_to_images = '/scratch/gpfs/ddenberg/231214_stack9/histone';
+% path_to_images = '/scratch/gpfs/ddenberg/231214_stack9/cdx2';
 
-output = './output/230917_st10_histone.h5';
+% output = '/scratch/gpfs/ddenberg/231214_stack9/histone_maxproj.h5';
+% output = './output/230917_st10_histone.h5';
 
-frames_to_extract = 0:140;
-numThreads = 16;
-
-% anisotropy parameters
-resXY = 0.208;
-resZ = 2.0;
+% frames_to_extract = 0:120;
+% numThreads = 16;
 
 % get filenames in each directory (excluding .label and .tif images)
 [histone_filenames, histone_filename_folders] = get_filenames(path_to_images, {'klb'}, {});
@@ -48,3 +47,5 @@ end
 
 h5create(output, '/maxproj', size(maxproj), 'Datatype', 'uint16');
 h5write(output, '/maxproj', maxproj);
+
+end

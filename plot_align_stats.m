@@ -1,7 +1,9 @@
 clc;
 clear;
 
-align_tform_path = './output/230917_st10/align_Ch0short_gata6_histone';
+addpath('utils');
+
+align_tform_path = './output/231214_stack9/align_cdx2_histone';
 
 [tform_filenames, tform_filename_folders] = get_filenames(align_tform_path, {'.mat'}, {});
 tform_frames = get_frame_ids(tform_filenames);
@@ -13,7 +15,8 @@ tform_filename_folders = tform_filename_folders(order);
 
 angle = nan(length(tform_frames), 1);
 translation_magnitude = nan(length(tform_frames), 1);
-debug_slices = zeros(225, 225, 2, length(tform_frames));
+debug_slices_maxproj = zeros(225, 225, 2, length(tform_frames));
+debug_slices_center = zeros(225, 225, 2, length(tform_frames));
 
 for ii = 1:length(tform_frames)
     tform_file = fullfile(tform_filename_folders{ii}, tform_filenames{ii});
@@ -22,12 +25,13 @@ for ii = 1:length(tform_frames)
 
     rigid_tform = tform_struct.rigid_tform;
     
-    debug_slices(:,:,:,ii) = tform_struct.debug_slice_maxproj;
+    debug_slices_maxproj(:,:,:,ii) = tform_struct.debug_slice_maxproj;
+    debug_slices_center(:,:,:,ii) = tform_struct.debug_slice_center;
     translation_magnitude(ii) = norm(rigid_tform.Translation);
     angle(ii) = acosd((trace(rigid_tform.R) - 1) / 2);
 
-    clf;
-    imagesc3d(tform_struct.debug_slice_maxproj);
+    % clf;
+    % imagesc3d(tform_struct.debug_slice_maxproj);
     fprintf('Frame: %d\n', tform_frames(ii));
 
     % if tform_frames(ii) == 58

@@ -2,6 +2,7 @@
 % clear;
 function align_histone_TF(path_to_TF, path_to_histone, path_to_TF_centers, path_to_histone_centers, output_path, frames_to_align, numThreads)
 
+addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 
@@ -31,7 +32,7 @@ max_zscore = 25;
 
 % downsample factor (list of values for registration steps)
 downsample_factor = [0.25];
-sigma_init_rigid = [1e-1];
+sigma_init = [1e-1];
 max_gen_init = [100];
 population_size_init = [10];
 tol = 1e-5;
@@ -148,7 +149,7 @@ for ii = 1:length(frames_to_align)
         TF_ds = isotropicSample_bilinear(TF_crop, resXY, resZ, downsample_factor(jj));
         histone_ds = isotropicSample_bilinear(histone_crop, resXY, resZ, downsample_factor(jj));
 
-        sigma = sigma_init_rigid(jj);
+        sigma = sigma_init(jj);
         max_gen = max_gen_init(jj);
         population_size = population_size_init(jj);
 
