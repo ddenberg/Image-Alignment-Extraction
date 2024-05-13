@@ -2,6 +2,13 @@
 % clear;
 function compute_image_centroids_maxproj(maxproj_file, image_path, output_path, ...
     frames_to_compute, numThreads, varargin)
+% maxproj_file: /path/to/filename.h5 generated from max_projection_across_time.m
+% image_path: path to image directory containing images from a single channel/camera
+% output_path: where to save the output centers
+% frames_to_compute: [start_frame:end_frame]
+% numThreads: 8 or 16 work well
+% varargin: Should only be specified if you want to overwrite the centroid
+%           pass as [c_x, c_y, c_z] where c_i are the pixel coordinates
 
 addpath('utils');
 addpath('loss_functions');
