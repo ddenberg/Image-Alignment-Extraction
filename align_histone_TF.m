@@ -1,6 +1,17 @@
 % clc;
 % clear;
 function align_histone_TF(path_to_TF, path_to_histone, path_to_TF_centers, path_to_histone_centers, output_path, frames_to_align, numThreads)
+% path_to_TF: path to directory containing the transcription factor image sequence
+% path_to_histone: path to directory containing the histone image sequence
+% path_to_TF_centers: path to directory containing the centers for each frame of the 
+%                     transcription factor sequence. This was generated
+%                     using compute_image_centroids_maxproj
+% path_to_histone_centers: path to directory containing the centers for each frame of the 
+%                          histone sequence. This was generated using 
+%                          compute_image_centroids_maxproj
+% output_path: directory of where to save the alignment
+% frames_to_align: [first_frame:final_frame] or list of frames to align
+% numThreads: 8 or 16 works well on the cluster
 
 addpath('utils');
 addpath('loss_functions');
