@@ -7,8 +7,9 @@ function compute_image_centroids_maxproj(maxproj_file, image_path, output_path, 
 % output_path: where to save the output centers
 % frames_to_compute: [start_frame:end_frame]
 % numThreads: 8 or 16 work well
-% varargin: Should only be specified if you want to overwrite the centroid
-%           pass as [c_x, c_y, c_z] where c_i are the pixel coordinates
+% varargin{1}: overwrite_centroid: Should only be specified if you want to overwrite the centroid
+%                                  pass as [c_x, c_y, c_z] where c_i are the pixel coordinates
+% varargin{2}: overwrite_centroid_tolerance: Amount of pixels to deviate from 'overwrite_centroid"
 
 addpath('utils');
 addpath('loss_functions');
