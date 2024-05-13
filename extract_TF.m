@@ -1,6 +1,13 @@
 % clc;
 % clear;
 function extract_TF(path_to_TF, path_to_segmentation, tform_path, output_path, output_name, frames_to_extract, numThreads)
+% path_to_TF: path to raw images (.klb) for the transcription factor
+% path_to_segmentation: path to segmentation (.klb) of histone
+% tform_path: directory generated as output to align_histone_TF
+% output_path: path of directory of where to save the extraction
+% output_name: filename.csv
+% frames_to_extract: [start_frame:end_frame] or list of frames to extract
+% numThreads: 8 or 16 works well on the cluster
 
 addpath('utils');
 addpath('loss_functions');
