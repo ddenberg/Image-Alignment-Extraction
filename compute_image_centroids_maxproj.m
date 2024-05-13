@@ -1,11 +1,11 @@
 % clc;
 % clear;
-function compute_image_centroids_maxproj(maxproj_file, image_path, output_path, frames_to_compute, numThreads)
+function compute_image_centroids_maxproj(maxproj_file, image_path, output_path, ...
+    frames_to_compute, numThreads, varargin)
 
 addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
-addpath('PC_IoU');
 
 
 % maxproj_file = 'D:\Posfai_Lab\MouseData\230917_st10\histone_maxproj_permute.tif';
@@ -23,7 +23,7 @@ end
 
 % centroid paramters
 downsample_factor = 0.1;
-outside_var_weight = 1e5;
+outside_var_weight = 1e4;
 max_zscore = 25;
 min_percentile = 1;
 max_percentile = 99;
@@ -49,9 +49,27 @@ img_bg_std = std(img(img >= P(1) & img <= P(2)), [], 'all');
 img = (img - img_bg_mean) / img_bg_std;
 img = max(min(img, max_zscore), 0); % clip large z-scores and clip at 0
 
-[img_centroid, MAES_state, trackers, debug_slice] = ...
+overwrite_centroid = [];
+overwrite_centroid_tolerance = [];
+if ~isempty(varargin)
+    overwrite_centroid = varargin{1};
+    overwrite_centroid = overwrite_centroid(:);
+    if ~all(size(overwrite_centroid) == [3, 1])
+        error('overwrite_centroid does not have the correct shape. Must be [3, 1]');
+    end
+
+    if length(varargin) == 2
+        overwrite_centroid_tolerance = varargin{2};
+    end
+end
+
+[img_centroid, MAES_state, trackers, debug_stack] = ...
     image_centroid(img, resXY, resZ, downsample_factor, ...
-    outside_var_weight, min_radius, max_radius, population_size);
+    outside_var_weight, min_radius, max_radius, population_size, ...
+    overwrite_centroid, overwrite_centroid_tolerance);
+
+save(fullfile(output_path, 'maxproj'), 'img_centroid', 'MAES_state', 'trackers', ...
+    'debug_stack');
 
 % get filenames in each directory (excluding .label and .tif images)
 [img_filenames, img_filename_folders] = get_filenames(image_path, {'klb'}, {});
@@ -85,8 +103,10 @@ for ii = 1:length(frames_to_compute)
     % img = max(min(img, max_zscore), 0); % clip large z-scores and clip at 0
 
     save(fullfile(output_path, ['frame_', num2str(frames_to_compute(ii))]), ...
-        'img_centroid', 'img_bg_mean', 'img_bg_std', 'MAES_state', 'trackers', ...
-        'debug_slice');
+        'img_centroid', 'img_bg_mean', 'img_bg_std');
+
+
+    fprintf('Frame %d, Done!\n', frames_to_compute(ii));
 end
 
 end

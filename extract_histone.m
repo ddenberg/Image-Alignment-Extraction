@@ -18,10 +18,6 @@ end
 % frames_to_extract = 0:108;
 % numThreads = 16;
 
-% anisotropy parameters
-resXY = 0.208;
-resZ = 2.0;
-
 % gmm parameters
 tol_bm = 0.4; % bimodality coefficient threshold
 tol_diff = 0.1; % gmm weight difference threshold
@@ -54,11 +50,11 @@ for ii = 1:length(frames_to_extract)
     histone_file = fullfile(histone_filename_folders{histone_ind}, histone_filenames{histone_ind});
 
     % read in nuclear, long, and short images
-    seg_raw = readKLBstack(seg_file, numThreads);
-    histone_raw = readKLBstack(histone_file, numThreads);
+    seg_img = readKLBstack(seg_file, numThreads);
+    histone_img = readKLBstack(histone_file, numThreads);
 
     % use regionprops3 to extract values in long
-    stats_histone_nowarp = regionprops3(seg_raw, histone_raw, {'Volume', 'MeanIntensity', 'VoxelValues'});
+    stats_histone_nowarp = regionprops3(seg_img, histone_img, {'Volume', 'MeanIntensity', 'VoxelValues', 'Centroid'});
 
     ids = (1:size(stats_histone_nowarp, 1)).';
     filter_ids = ~isnan(stats_histone_nowarp.MeanIntensity);
@@ -80,8 +76,9 @@ for ii = 1:length(frames_to_extract)
 
     extract_list{ii} = table(repmat(frames_to_extract(ii), length(ids), 1), ids, ...
         stats_histone_nowarp.Volume, stats_histone_nowarp.MeanIntensity, histone_nowarp_gmm, histone_nowarp_bm, ...
+        stats_histone_nowarp.Centroid, ...
         'VariableNames', {'Frame', 'ID', ...
-        'Volume_nowarp', 'MeanIntensity_nowarp', 'GMMIntensity_nowarp', 'Bimodality_nowarp'});
+        'Volume_nowarp', 'MeanIntensity_nowarp', 'GMMIntensity_nowarp', 'Bimodality_nowarp', 'Centroid'});
 
     fprintf('Frame %d/%d, Long Cam Done!\n', frames_to_extract(ii), max(frames_to_extract));
 

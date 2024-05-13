@@ -23,9 +23,9 @@ end
 % numThreads = 16;
 
 % crop box for increasing performance
-crop_h = 900;
-crop_v = 900;
-crop_z = 90;
+crop_height = 900;
+crop_width = 900;
+crop_depth = 900;
 
 % anisotropy parameters
 resXY = 0.208;
@@ -68,35 +68,42 @@ for ii = 1:length(frames_to_extract)
     seg_tform_file = fullfile(seg_tform_filename_folders{seg_tform_ind}, seg_tform_filenames{seg_tform_ind});
 
     % read in nuclear, long, and short images
-    seg_raw = readKLBstack(seg_file, numThreads);
-    TF_raw = readKLBstack(TF_file, numThreads);
+    seg_img = readKLBstack(seg_file, numThreads);
+    TF_img = readKLBstack(TF_file, numThreads);
     seg_tform_struct = load(seg_tform_file);
 
     % crop seg, long, and short images
-    seg_crop = seg_raw(seg_tform_struct.histone_hpair(1):seg_tform_struct.histone_hpair(2), ...
-                       seg_tform_struct.histone_vpair(1):seg_tform_struct.histone_vpair(2), ...
-                       seg_tform_struct.histone_zpair(1):seg_tform_struct.histone_zpair(2));
-    TF_crop = TF_raw(seg_tform_struct.TF_hpair(1):seg_tform_struct.TF_hpair(2), ...
-                     seg_tform_struct.TF_vpair(1):seg_tform_struct.TF_vpair(2), ...
-                     seg_tform_struct.TF_zpair(1):seg_tform_struct.TF_zpair(2));
+    [seg_crop_iso, seg_hpair, seg_wpair, seg_dpair] = isotropic_crop(seg_img, seg_tform_struct.histone_centroid, ...
+        crop_height, crop_width, crop_depth, resXY, resZ, 'nearest');
+    [TF_crop_iso, TF_hpair, TF_wpair, TF_dpair] = isotropic_crop(TF_img, seg_tform_struct.TF_centroid, ...
+        crop_height, crop_width, crop_depth, resXY, resZ, 'bilinear');
 
-    clear seg_raw TF_raw;
+    % seg_crop = seg_img(seg_tform_struct.histone_hpair(1):seg_tform_struct.histone_hpair(2), ...
+    %                    seg_tform_struct.histone_vpair(1):seg_tform_struct.histone_vpair(2), ...
+    %                    seg_tform_struct.histone_zpair(1):seg_tform_struct.histone_zpair(2));
+    % TF_crop = TF_img(seg_tform_struct.TF_hpair(1):seg_tform_struct.TF_hpair(2), ...
+    %                  seg_tform_struct.TF_vpair(1):seg_tform_struct.TF_vpair(2), ...
+    %                  seg_tform_struct.TF_zpair(1):seg_tform_struct.TF_zpair(2));
+
+    clear seg_img TF_img;
 
     % create isotropic segmentation and TF channels
-    TF_crop_iso = isotropicSample_bilinear(TF_crop, resXY, resZ, 1);
-    seg_crop_iso = isotropicSample_nearest(seg_crop, resXY, resZ, 1);
+    % TF_crop_iso = isotropicSample_bilinear(TF_crop, resXY, resZ, 1);
+    % seg_crop_iso = isotropicSample_nearest(seg_crop, resXY, resZ, 1);
 
     % create segmentation (fixed) referencing struct
     seg_ref = imref3d(size(seg_crop_iso));
-    seg_ref.XWorldLimits = seg_tform_struct.histone_hpair - seg_tform_struct.histone_centroid(1);
-    seg_ref.YWorldLimits = seg_tform_struct.histone_vpair - seg_tform_struct.histone_centroid(2);
-    seg_ref.ZWorldLimits = (seg_tform_struct.histone_zpair - 1) * resZ / resXY + 1 - seg_tform_struct.histone_centroid(3);
+    seg_ref.XWorldLimits = seg_hpair - seg_tform_struct.histone_centroid(1);
+    seg_ref.YWorldLimits = seg_wpair - seg_tform_struct.histone_centroid(2);
+    seg_ref.ZWorldLimits = seg_dpair - seg_tform_struct.histone_centroid(3);
+    % seg_ref.ZWorldLimits = (seg_tform_struct.histone_zpair - 1) * resZ / resXY + 1 - seg_tform_struct.histone_centroid(3);
 
     % create TF (moving) referencing struct
     TF_ref = imref3d(size(TF_crop_iso));
-    TF_ref.XWorldLimits = seg_tform_struct.TF_hpair - seg_tform_struct.TF_centroid(1);
-    TF_ref.YWorldLimits = seg_tform_struct.TF_vpair - seg_tform_struct.TF_centroid(2);
-    TF_ref.ZWorldLimits = (seg_tform_struct.TF_zpair - 1) * resZ / resXY + 1 - seg_tform_struct.TF_centroid(3);
+    TF_ref.XWorldLimits = TF_hpair - seg_tform_struct.TF_centroid(1);
+    TF_ref.YWorldLimits = TF_wpair - seg_tform_struct.TF_centroid(2);
+    TF_ref.ZWorldLimits = TF_dpair - seg_tform_struct.TF_centroid(3);
+    % TF_ref.ZWorldLimits = (seg_tform_struct.TF_zpair - 1) * resZ / resXY + 1 - seg_tform_struct.TF_centroid(3);
 
     % warp long channel
     TF_crop_iso_nowarp = imwarp(TF_crop_iso, TF_ref, tform_identity, 'OutputView', seg_ref);

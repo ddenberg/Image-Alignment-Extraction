@@ -23,12 +23,12 @@ end
 % numThreads = 16;
 
 % crop box for increasing performance
-crop_h = 900;
-crop_v = 900;
-crop_z = 90;
+crop_height = 900;
+crop_width = 900;
+crop_depth = 900;
 
 % parameters for normalization
-max_zscore = 25;
+max_zscore = 100;
 
 % downsample factor (list of values for registration steps)
 downsample_factor = [0.25];
@@ -76,86 +76,68 @@ for ii = 1:length(frames_to_align)
                                    TF_centers_filenames{TF_center_ind});
 
     % read in nuclear image
-    histone_raw = readKLBstack(histone_file, numThreads);
+    histone_img = readKLBstack(histone_file, numThreads);
     
     % load histone center
     histone_center_struct = load(histone_center_file);
     histone_centroid = histone_center_struct.img_centroid;
+    
+    fprintf('Frame %d\n', frames_to_align(ii));
+    fprintf('  Histone Centroid %f, %f, %f\n', histone_centroid(1), histone_centroid(2), histone_centroid(3));
 
-    fprintf('Frame %d, Histone Centroid %f, %f, %f\n', frames_to_align(ii), histone_centroid(1), histone_centroid(2), histone_centroid(3));
+    % normalize image
+    histone_img = (single(histone_img) - histone_center_struct.img_bg_mean) / histone_center_struct.img_bg_std;
 
-    histone_hpair = round([histone_centroid(1) - crop_h / 2, histone_centroid(1) + crop_h / 2]);
-    histone_hpair = min(max(histone_hpair, 1), size(histone_raw, 1));
+    % crop histone
+    [histone_crop, histone_hpair, histone_wpair, histone_dpair] = isotropic_crop(histone_img, histone_centroid, ...
+        crop_height, crop_width, crop_depth, resXY, resZ, 'bilinear');
 
-    histone_vpair = round([histone_centroid(2) - crop_v / 2, histone_centroid(2) + crop_v / 2]);
-    histone_vpair = min(max(histone_vpair, 1), size(histone_raw, 2));
+    % cap z score
+    histone_crop = min(histone_crop, max_zscore);
 
-    histone_zpair = round([histone_centroid(3) * resXY / resZ - crop_z / 2, ...
-                           histone_centroid(3) * resXY / resZ + crop_z / 2]);
-    histone_zpair = min(max(histone_zpair, 1), size(histone_raw, 3));
-
-    histone_crop = histone_raw(histone_hpair(1):histone_hpair(2), ...
-                               histone_vpair(1):histone_vpair(2), ...
-                               histone_zpair(1):histone_zpair(2));
-
-    clear histone_raw;
+    clear histone_img;
 
     % read in TF image
-    TF_raw = readKLBstack(TF_file, numThreads);
+    TF_img = readKLBstack(TF_file, numThreads);
 
     % load TF center
     TF_center_struct = load(TF_center_file);
     TF_centroid = TF_center_struct.img_centroid;
 
-    fprintf('Frame %d, TF Centroid %f, %f, %f\n', frames_to_align(ii), TF_centroid(1), TF_centroid(2), TF_centroid(3));
+    fprintf('  TF Centroid %f, %f, %f\n', TF_centroid(1), TF_centroid(2), TF_centroid(3));
 
-    TF_hpair = round([TF_centroid(1) - crop_h / 2, TF_centroid(1) + crop_h / 2]);
-    TF_hpair = min(max(TF_hpair, 1), size(TF_raw, 1));
+    % normalize images
+    TF_img = (single(TF_img) - TF_center_struct.img_bg_mean) / TF_center_struct.img_bg_std;
 
-    TF_vpair = round([TF_centroid(2) - crop_v / 2, TF_centroid(2) + crop_v / 2]);
-    TF_vpair = min(max(TF_vpair, 1), size(TF_raw, 2));
+    % create crop
+    [TF_crop, TF_hpair, TF_wpair, TF_dpair] = isotropic_crop(TF_img, TF_centroid, ...
+        crop_height, crop_width, crop_depth, resXY, resZ, 'bilinear');
 
-    TF_zpair = round([TF_centroid(3) * resXY / resZ - crop_z / 2, ...
-                      TF_centroid(3) * resXY / resZ + crop_z / 2]);
-    TF_zpair = min(max(TF_zpair, 1), size(TF_raw, 3));
-
-    TF_crop = TF_raw(TF_hpair(1):TF_hpair(2), ...
-                     TF_vpair(1):TF_vpair(2), ...
-                     TF_zpair(1):TF_zpair(2));
-
-    clear TF_raw;
-
-    % Convert to float32
-    histone_crop = single(histone_crop);
-    TF_crop = single(TF_crop);
-    
-    % normalize histone and TF images 
-    histone_crop = (histone_crop - histone_center_struct.img_bg_mean) / histone_center_struct.img_bg_std;
-    TF_crop = (TF_crop - TF_center_struct.img_bg_mean) / TF_center_struct.img_bg_std;
-
-    % cap value of zscores
-    histone_crop = min(histone_crop, max_zscore);
+    % cap z score
     TF_crop = min(TF_crop, max_zscore);
-    
+
+    clear TF_img;    
 
     % loop over downsample stages and use previous registration as initialization for the next
     rigid_trackers_ds = cell(length(downsample_factor), 1);
     rigid_MAES_state_ds = cell(length(downsample_factor), 1);
     rigid_x_min_ds = cell(length(downsample_factor), 1);
-    length_scale = mean([crop_h, crop_v, crop_z * resZ / resXY]) / 4;
-    angle_scale = 180;
     rigid_tform_ds = cell(length(downsample_factor), 1);
+
+    length_scale = 80;
+    angle_scale = 180;
+    
     for jj = 1:length(downsample_factor)
-        TF_ds = isotropicSample_bilinear(TF_crop, resXY, resZ, downsample_factor(jj));
-        histone_ds = isotropicSample_bilinear(histone_crop, resXY, resZ, downsample_factor(jj));
+        TF_ds = imresize3(TF_crop, downsample_factor(jj), 'linear');
+        histone_ds = imresize3(histone_crop, downsample_factor(jj), 'linear');
 
         sigma = sigma_init(jj);
         max_gen = max_gen_init(jj);
         population_size = population_size_init(jj);
 
         rigid_fun_h = @(x) rigid_loss(histone_ds, TF_ds, x, length_scale, angle_scale, ...
-                                      histone_centroid, histone_hpair, histone_vpair, histone_zpair, ...
-                                      TF_centroid, TF_hpair, TF_vpair, TF_zpair, resXY, resZ);
+                                      histone_centroid, histone_hpair, histone_wpair, histone_dpair, ...
+                                      TF_centroid, TF_hpair, TF_wpair, TF_dpair);
 
         % do down sampled registration first
         % initialize parameters for optimization
@@ -174,34 +156,42 @@ for ii = 1:length(frames_to_align)
         rigid_trackers_ds{jj} = trackers_ds;
         rigid_MAES_state_ds{jj} = MAES_state_ds;
         rigid_x_min_ds{jj} = x_min_ds;
-        [eulerAngles, translation] = param_embedding(x_min_ds, length_scale, angle_scale);
+        [eulerAngles, translation] = rigid_param_embedding(x_min_ds, length_scale, angle_scale);
         rigid_tform_ds{jj} = rigidtform3d(eulerAngles, translation);
 
         if jj == 1
             % create debug registered images
             [~, TF_ds_warp] = rigid_fun_h(x_min_ds);
 
-            z_ind = round(histone_centroid(3) * downsample_factor(jj));
-            debug_slice_center = zeros(size(TF_ds_warp, 1), size(TF_ds_warp, 2), 2);
-            debug_slice_center(:,:,1) = histone_ds(:,:,z_ind);
-            debug_slice_center(:,:,2) = TF_ds_warp(:,:,z_ind);
+%             debug_stack = zeros([size(TF_ds_warp), 2], 'single');
+%             debug_stack(:,:,:,1) = histone_ds;
+%             debug_stack(:,:,:,2) = TF_ds_warp;
 
-            debug_slice_maxproj = zeros(size(TF_ds_warp, 1), size(TF_ds_warp, 2), 2);
-            debug_slice_maxproj(:,:,1) = max(histone_ds, [], 3);
-            debug_slice_maxproj(:,:,2) = max(TF_ds_warp, [], 3);
+            debug_stack = zeros([size(TF_ds_warp), 2], 'uint8');
+
+            histone_ds_prctile = prctile(histone_ds, [0.1, 99.9], 'all');
+            debug_stack(:,:,:,1) = uint8(rescale(histone_ds, 0, 2^8-1, ...
+                'InputMin', histone_ds_prctile(1), 'InputMax', histone_ds_prctile(2)));
+
+            TF_ds_warp_prctile = prctile(TF_ds_warp, [0.1, 99.9], 'all');
+            debug_stack(:,:,:,2) = uint8(rescale(TF_ds_warp, 0, 2^8-1, ...
+                'InputMin', TF_ds_warp_prctile(1), 'InputMax', TF_ds_warp_prctile(2)));
+
+            debug_maxproj = zeros(size(TF_ds_warp, 1), size(TF_ds_warp, 2), 2, 'single');
+            debug_maxproj(:,:,1) = max(histone_ds, [], 3);
+            debug_maxproj(:,:,2) = max(TF_ds_warp, [], 3);
         end
 
     end
     rigid_x_min = rigid_x_min_ds{end};
-    [eulerAngles, translation] = param_embedding(rigid_x_min, length_scale, angle_scale);
+    [eulerAngles, translation] = rigid_param_embedding(rigid_x_min, length_scale, angle_scale);
     rigid_tform = rigidtform3d(eulerAngles, translation);
 
     save(fullfile(output_path, ['tform_frame_', num2str(frames_to_align(ii))]), ...
-        'histone_centroid', 'histone_hpair', 'histone_vpair', 'histone_zpair', ...
-        'TF_centroid', 'TF_hpair', 'TF_vpair', 'TF_zpair', ...
-        'rigid_x_min', 'rigid_MAES_state_ds', 'rigid_trackers_ds', 'rigid_x_min_ds', ...
-        'length_scale', 'angle_scale', 'rigid_tform_ds', 'rigid_tform', ...
-        'debug_slice_center', 'debug_slice_maxproj');
+        'crop_height', 'crop_width', 'crop_depth', 'histone_centroid', ...
+        'TF_centroid', 'rigid_x_min', 'rigid_MAES_state_ds', 'rigid_trackers_ds', ...
+        'rigid_x_min_ds', 'length_scale', 'angle_scale', 'rigid_tform_ds', 'rigid_tform', ...
+        'debug_stack', 'debug_maxproj');
 end
 
 end

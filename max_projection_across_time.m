@@ -3,8 +3,6 @@
 function max_projection_across_time(path_to_images, output, frames_to_extract, numThreads)
 
 addpath('utils');
-addpath('loss_functions');
-addpath('MA-ES');
 
 % path_to_images = '/scratch/gpfs/ddenberg/231214_stack9/histone';
 % path_to_images = '/scratch/gpfs/ddenberg/231214_stack9/cdx2';

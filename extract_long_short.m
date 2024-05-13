@@ -1,36 +1,30 @@
-clc;
-clear;
+% clc;
+% clear;
+
+function extract_long_short(path_to_long, path_to_short, path_to_segmentation, ...
+    align_histone_LS_path, align_LS_path, output_path, frames_to_align, numThreads)
 
 addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 
 
-path_to_long = 'D:\Posfai_Lab\MouseData\230101_st19_extract\long_nanog';
-path_to_short = 'D:\Posfai_Lab\MouseData\230101_st19_extract\short_gata6';
-path_to_segmentation = 'D:\Posfai_Lab\MouseData\230101_st19_extract\segmentation';
+% path_to_long = 'D:\Posfai_Lab\MouseData\230101_st19_extract\long_nanog';
+% path_to_short = 'D:\Posfai_Lab\MouseData\230101_st19_extract\short_gata6';
+% path_to_segmentation = 'D:\Posfai_Lab\MouseData\230101_st19_extract\segmentation';
 
-% path_to_long = '/scratch/gpfs/ddenberg/230101_st19_extract/long_nanog';
-% path_to_short = '/scratch/gpfs/ddenberg/230101_st19_extract/short_gata6';
-% path_to_segmentation = '/scratch/gpfs/ddenberg/230101_st19_extract/segmentation';
+% align_histone_LS_path = './output/230101_st19/align_LS_histone';
 
-align_histone_LS_path = './output/230101_st19/align_LS_histone';
-
-output_path = './output/230101_st19/output_extraction';
+% output_path = './output/230101_st19/output_extraction';
 % create output folder
 if ~exist(output_path, 'dir')
     mkdir(output_path);
 end
 
-long_short_tform = load('./output/230101_st19/align_long_short/tform_xy_average.mat');
+long_short_struct = load(align_LS_path);
 
-frames_to_align = 0:108;
-numThreads = 6;
-
-% crop box for increasing performance
-crop_h = 900;
-crop_v = 900;
-crop_z = 90;
+% frames_to_align = 0:108;
+% numThreads = 6;
 
 % anisotropy parameters
 resXY = 0.208;
@@ -84,41 +78,51 @@ for ii = 1:length(frames_to_align)
     tform_struct = load(tform_file);
 
     % warp short channel
-    short_img = imwarp(short_img, long_short_tform.tform, 'OutputView', imref3d(size(long_img)));
+    short_img = imwarp(short_img, long_short_struct.translation_tform, ...
+        'OutputView', imref3d(size(long_img)), 'interp', 'linear');
 
     % crop images
-    seg_crop = seg_img(tform_struct.histone_hpair(1):tform_struct.histone_hpair(2), ...
-                       tform_struct.histone_vpair(1):tform_struct.histone_vpair(2), ...
-                       tform_struct.histone_zpair(1):tform_struct.histone_zpair(2));
-    long_crop = long_img(tform_struct.LS_hpair(1):tform_struct.LS_hpair(2), ...
-                         tform_struct.LS_vpair(1):tform_struct.LS_vpair(2), ...
-                         tform_struct.LS_zpair(1):tform_struct.LS_zpair(2));
-    short_crop = short_img(tform_struct.LS_hpair(1):tform_struct.LS_hpair(2), ...
-                          tform_struct.LS_vpair(1):tform_struct.LS_vpair(2), ...
-                          tform_struct.LS_zpair(1):tform_struct.LS_zpair(2));
+    [seg_crop_iso, seg_hpair, seg_wpair, seg_dpair] = isotropic_crop(seg_img, tform_struct.histone_centroid, ...
+        tform_struct.crop_height, tform_struct.crop_width, tform_struct.crop_depth, resXY, resZ, 'nearest');
+    [long_crop_iso, long_hpair, long_wpair, long_dpair] = isotropic_crop(long_img, tform_struct.long_centroid, ...
+        tform_struct.crop_height, tform_struct.crop_width, tform_struct.crop_depth, resXY, resZ, 'bilinear');
+    short_crop_iso = isotropic_crop(short_img, tform_struct.long_centroid, ...
+        tform_struct.crop_height, tform_struct.crop_width, tform_struct.crop_depth, resXY, resZ, 'bilinear');
+
+    % seg_crop = seg_img(tform_struct.histone_hpair(1):tform_struct.histone_hpair(2), ...
+    %                    tform_struct.histone_vpair(1):tform_struct.histone_vpair(2), ...
+    %                    tform_struct.histone_zpair(1):tform_struct.histone_zpair(2));
+    % long_crop = long_img(tform_struct.long_hpair(1):tform_struct.long_hpair(2), ...
+    %                      tform_struct.long_vpair(1):tform_struct.long_vpair(2), ...
+    %                      tform_struct.long_zpair(1):tform_struct.long_zpair(2));
+    % short_crop = short_img(tform_struct.short_hpair(1):tform_struct.short_hpair(2), ...
+    %                        tform_struct.short_vpair(1):tform_struct.short_vpair(2), ...
+    %                        tform_struct.short_zpair(1):tform_struct.short_zpair(2));
 
     clear long_img short_img seg_img;
 
     % create isotropic segmentation, long and short channels
-    short_crop_iso = isotropicSample_bilinear(short_crop, resXY, resZ, 1);
-    long_crop_iso = isotropicSample_bilinear(long_crop, resXY, resZ, 1);
-    seg_crop_iso = isotropicSample_nearest(seg_crop, resXY, resZ, 1);
+    % short_crop_iso = isotropicSample_bilinear(short_crop, resXY, resZ, 1);
+    % long_crop_iso = isotropicSample_bilinear(long_crop, resXY, resZ, 1);
+    % seg_crop_iso = isotropicSample_nearest(seg_crop, resXY, resZ, 1);
 
     % create segmentation (fixed) referencing struct
     seg_ref = imref3d(size(seg_crop_iso));
-    seg_ref.XWorldLimits = tform_struct.histone_hpair - tform_struct.histone_centroid(1);
-    seg_ref.YWorldLimits = tform_struct.histone_vpair - tform_struct.histone_centroid(2);
-    seg_ref.ZWorldLimits = (tform_struct.histone_zpair - 1) * resZ / resXY + 1 - tform_struct.histone_centroid(3);
+    seg_ref.XWorldLimits = seg_hpair - tform_struct.histone_centroid(1);
+    seg_ref.YWorldLimits = seg_wpair - tform_struct.histone_centroid(2);
+    seg_ref.ZWorldLimits = seg_dpair - tform_struct.histone_centroid(3);
+    % seg_ref.ZWorldLimits = (tform_struct.histone_zpair - 1) * resZ / resXY + 1 - tform_struct.histone_centroid(3);
 
     % create TF (moving) referencing struct
-    LS_ref = imref3d(size(long_crop_iso));
-    LS_ref.XWorldLimits = tform_struct.LS_hpair - tform_struct.LS_centroid(1);
-    LS_ref.YWorldLimits = tform_struct.LS_vpair - tform_struct.LS_centroid(2);
-    LS_ref.ZWorldLimits = (tform_struct.LS_zpair - 1) * resZ / resXY + 1 - tform_struct.LS_centroid(3);
+    long_ref = imref3d(size(long_crop_iso));
+    long_ref.XWorldLimits = long_hpair - tform_struct.long_centroid(1);
+    long_ref.YWorldLimits = long_wpair - tform_struct.long_centroid(2);
+    long_ref.ZWorldLimits = long_dpair - tform_struct.long_centroid(3);
+    % long_ref.ZWorldLimits = (tform_struct.long_zpair - 1) * resZ / resXY + 1 - tform_struct.long_centroid(3);
 
     % warp long channel
-    long_crop_iso_nowarp = imwarp(long_crop_iso, LS_ref, tform_identity, 'OutputView', seg_ref);
-    long_crop_iso_warp = imwarp(long_crop_iso, LS_ref, tform_struct.rigid_tform, 'OutputView', seg_ref);    
+    long_crop_iso_nowarp = imwarp(long_crop_iso, long_ref, tform_identity, 'OutputView', seg_ref);
+    long_crop_iso_warp = imwarp(long_crop_iso, long_ref, tform_struct.rigid_tform, 'OutputView', seg_ref);    
 
     % use regionprops3 to extract values in long
     stats_long_nowarp = regionprops3(seg_crop_iso, long_crop_iso_nowarp, {'Volume', 'MeanIntensity', 'VoxelValues'});
@@ -142,20 +146,20 @@ for ii = 1:length(frames_to_align)
     long_nowarp_bm = zeros(length(ids), 1);
     long_rigid_bm = zeros(length(ids), 1);
 
-    % for jj = 1:length(ids) 
-    % 
-    %     % nowarp
-    %     X = double(stats_long_nowarp.VoxelValues{jj});
-    %     [mu, bm] = fit_gmm2_1D(X, tol_bm, tol_diff);
-    %     long_nowarp_gmm(jj) = mu;
-    %     long_nowarp_bm(jj) = bm;
-    % 
-    %     % rigid
-    %     X = double(stats_long_rigid.VoxelValues{jj});
-    %     [mu, bm] = fit_gmm2_1D(X, tol_bm, tol_diff);
-    %     long_rigid_gmm(jj) = mu;
-    %     long_rigid_bm(jj) = bm;
-    % end
+    for jj = 1:length(ids) 
+    
+        % nowarp
+        X = double(stats_long_nowarp.VoxelValues{jj});
+        [mu, bm] = fit_gmm2_1D(X, tol_bm, tol_diff);
+        long_nowarp_gmm(jj) = mu;
+        long_nowarp_bm(jj) = bm;
+    
+        % rigid
+        X = double(stats_long_rigid.VoxelValues{jj});
+        [mu, bm] = fit_gmm2_1D(X, tol_bm, tol_diff);
+        long_rigid_gmm(jj) = mu;
+        long_rigid_bm(jj) = bm;
+    end
 
     extract_long{ii} = table(repmat(frames_to_align(ii), length(ids), 1), ids, ...
         stats_long_nowarp.Volume, stats_long_nowarp.MeanIntensity, long_nowarp_gmm, long_nowarp_bm, ...
@@ -166,8 +170,8 @@ for ii = 1:length(frames_to_align)
     fprintf('Frame %d/%d, Long Cam Done!\n', frames_to_align(ii), max(frames_to_align));
 
     % warp short channel
-    short_crop_iso_nowarp = imwarp(long_crop_iso, LS_ref, tform_identity, 'OutputView', seg_ref);
-    short_crop_iso_warp = imwarp(short_crop_iso, LS_ref, tform_struct.rigid_tform, 'OutputView', seg_ref);
+    short_crop_iso_nowarp = imwarp(short_crop_iso, long_ref, tform_identity, 'OutputView', seg_ref);
+    short_crop_iso_warp = imwarp(short_crop_iso, long_ref, tform_struct.rigid_tform, 'OutputView', seg_ref);
     
     % use regionprops3 to extract values in short
     stats_short_nowarp = regionprops3(seg_crop_iso, short_crop_iso_nowarp, {'Volume', 'MeanIntensity', 'VoxelValues'});
@@ -191,20 +195,20 @@ for ii = 1:length(frames_to_align)
     short_nowarp_bm = zeros(length(ids), 1);
     short_rigid_bm = zeros(length(ids), 1);
 
-    % for jj = 1:length(ids) 
-    % 
-    %     % nowarp
-    %     X = double(stats_short_nowarp.VoxelValues{jj});
-    %     [mu, bm] = fit_gmm2_1D(X, tol_bm, tol_diff);
-    %     short_nowarp_gmm(jj) = mu;
-    %     short_nowarp_bm(jj) = bm;
-    % 
-    %     % rigid
-    %     X = double(stats_short_rigid.VoxelValues{jj});
-    %     [mu, bm] = fit_gmm2_1D(X, tol_bm, tol_diff);
-    %     short_rigid_gmm(jj) = mu;
-    %     short_rigid_bm(jj) = bm;
-    % end
+    for jj = 1:length(ids) 
+    
+        % nowarp
+        X = double(stats_short_nowarp.VoxelValues{jj});
+        [mu, bm] = fit_gmm2_1D(X, tol_bm, tol_diff);
+        short_nowarp_gmm(jj) = mu;
+        short_nowarp_bm(jj) = bm;
+    
+        % rigid
+        X = double(stats_short_rigid.VoxelValues{jj});
+        [mu, bm] = fit_gmm2_1D(X, tol_bm, tol_diff);
+        short_rigid_gmm(jj) = mu;
+        short_rigid_bm(jj) = bm;
+    end
 
     extract_short{ii} = table(repmat(frames_to_align(ii), length(ids), 1), ids, ...
         stats_short_nowarp.Volume, stats_short_nowarp.MeanIntensity, short_nowarp_gmm, short_nowarp_bm, ...
@@ -219,6 +223,8 @@ for ii = 1:length(frames_to_align)
     writetable(vertcat(extract_long{:}), output_file_long);
     writetable(vertcat(extract_short{:}), output_file_short);
     
+end
+
 end
 
 % h5create('nuc_affine.h5', '/exported_data', size(nuc_crop), 'Datatype', 'single');

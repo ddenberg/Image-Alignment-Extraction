@@ -3,8 +3,8 @@ clear;
 
 addpath('utils');
 
-% segmentation_tform_path = './output/230917_st10/histone_centers';
-segmentation_tform_path = './output/231214_stack9/cdx2_centers';
+segmentation_tform_path = 'D:\Posfai_Lab\MouseData\240328_st0\Ch0_long_nanog_centers';
+% segmentation_tform_path = './output/231214_stack9/cdx2_centers';
 
 [mat_filenames, mat_filename_folders] = get_filenames(segmentation_tform_path, {'.mat'}, {});
 mat_frames = get_frame_ids(mat_filenames);
