@@ -1,24 +1,6 @@
-function [centroid, MAES_state, trackers, debug_slice] = image_centroid(img, resXY, resZ, downsample_factor, ...
-    outside_var_weight, min_radius, max_radius, population_size)
-
-% img = zscore(single(img), 0, 'all');
-% [mesh_x, mesh_y] = ndgrid(1:size(img, 1), 1:size(img, 2));
-% cx = 0;
-% cy = 0;
-% cz = 0;
-% normalization = 0;
-% for kk = 1:size(img, 3)
-% %     mask = img(:,:,kk) >= threshold;
-%     img_kk_expo = min(max(double(img(:,:,kk)), eps), max_std).^expo;
-%     cx = cx + sum(mesh_x .* img_kk_expo, 'all');
-%     cy = cy + sum(mesh_y .* img_kk_expo, 'all');
-%     cz = cz + sum(kk .* img_kk_expo, 'all');
-%     normalization = normalization + sum(img_kk_expo, 'all');
-% end
-% cx = cx / normalization;
-% cy = cy / normalization;
-% cz = cz / normalization;
-% centroid = [cx, cy, cz];
+function [centroid, MAES_state, trackers, debug_stack] = image_centroid(img, resXY, resZ, ...
+    downsample_factor, outside_var_weight, min_radius, max_radius, population_size, ...
+    overwrite_centroid, overwrite_centroid_tolerance)
 
 img = isotropicSample_bilinear(img, resXY, resZ, downsample_factor);
 
@@ -31,9 +13,23 @@ DOF0 = zeros(4, 1);
 min_radius = min_radius * downsample_factor;
 max_radius = max_radius * downsample_factor;
 
-min_center = 2 * min_radius * ones(3, 1);
-max_center = size(img);
-max_center = max_center(:) - min_center;
+if ~isempty(overwrite_centroid)
+    overwrite_centroid(3) = (overwrite_centroid(3) - 1) * resZ / resXY + 1;
+    
+    min_center = overwrite_centroid - overwrite_centroid_tolerance;
+    max_center = overwrite_centroid + overwrite_centroid_tolerance;
+
+    min_center = min_center * downsample_factor;
+    max_center = max_center * downsample_factor;
+
+else    
+    min_center = 2 * min_radius * ones(3, 1);
+    max_center = size(img);
+    max_center = max_center(:) - min_center;
+end
+
+% min_center(1:2) = [75; 45]; % vertical min; horizontal min
+% max_center(1:2) = [100; 80]; % vertical max; horizontal max
 
 obj_fun_handle = @(DOF) ChanVese_objective(DOF, img, X, Y, Z, outside_var_weight, ...
     min_center, max_center, min_radius, max_radius);
@@ -45,9 +41,9 @@ MAES_state = MAES_initialize(DOF0, 1e0, 200, 1e-5, population_size);
 
 % make debug slice through center of centroid
 mask = (X - centroid(1)).^2 + (Y - centroid(2)).^2 + (Z - centroid(3)).^2 <= radius.^2;
-z_ind = round(centroid(3));
+% z_ind = round(centroid(3));
 BW = edge3(mask, 'sobel', 0.5);
-debug_slice = img(:,:,z_ind) + max(img, [], 'all') * BW(:,:,z_ind);
+debug_stack = img + max(img, [], 'all') * BW;
 
 % rescale centroid to full resolution
 centroid = centroid / downsample_factor;
