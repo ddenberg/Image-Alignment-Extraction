@@ -1,6 +1,10 @@
 % clc;
 % clear;
 function max_projection_across_time(path_to_images, output, frames_to_extract, numThreads)
+% path_to_images: Directory containing .klb stacks
+% output: /path/to/filename.h5 
+% frames_to_extract: [start_frame:end_frame]
+% numThreads: Number of threads to use. 8 or 16 work well.
 
 addpath('utils');
 
