@@ -6,7 +6,8 @@ tform = transltform3d(translation);
 
 moving_warp = imwarp(moving, tform, 'OutputView', imref3d(size(fixed)), 'interp', 'linear');
 
-loss = rms(moving_warp - fixed, 'all');
+% loss = rms(moving_warp - fixed, 'all');
+loss = -sum(moving_warp .* fixed, 'all') / (numel(fixed) - 1);
 
 end
 

@@ -1,10 +1,11 @@
-function [loss, moving_warp] = rigid_loss(fixed, moving, params, length_scale, angle_scale, ...
+function [loss, moving_warp] = rigid_loss_noembedding(fixed, moving, params, length_scale, angle_scale, ...
     fixed_center, fixed_hpair, fixed_wpair, fixed_dpair, ...
     moving_center, moving_hpair, moving_wpair, moving_dpair)
 
 params = params(:);
 
-[eulerAngles, translation] = rigid_param_embedding(params, length_scale, angle_scale);
+translation = params(1:3).' * length_scale;
+eulerAngles = params(4:6).' * angle_scale;
 
 tform = rigidtform3d(eulerAngles, translation);
 
