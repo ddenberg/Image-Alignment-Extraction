@@ -16,8 +16,13 @@ max_radius = max_radius * downsample_factor;
 if ~isempty(overwrite_centroid)
     overwrite_centroid(3) = (overwrite_centroid(3) - 1) * resZ / resXY + 1;
     
-    min_center = overwrite_centroid - overwrite_centroid_tolerance;
-    max_center = overwrite_centroid + overwrite_centroid_tolerance;
+    if ~isempty(overwrite_centroid_tolerance)
+        min_center = overwrite_centroid - overwrite_centroid_tolerance;
+        max_center = overwrite_centroid + overwrite_centroid_tolerance;
+    else
+        min_center = overwrite_centroid;
+        max_center = overwrite_centroid;
+    end
 
     min_center = min_center * downsample_factor;
     max_center = max_center * downsample_factor;
@@ -34,10 +39,26 @@ end
 obj_fun_handle = @(DOF) ChanVese_objective(DOF, img, X, Y, Z, outside_var_weight, ...
     min_center, max_center, min_radius, max_radius);
 
-MAES_state = MAES_initialize(DOF0, 1e0, 200, 1e-5, population_size);
+nTrials = 512;
+DOF0_best = DOF0;
+obj0_best = Inf;
+for ii = 1:nTrials
+    DOF0 = 2 * pi * rand(4, 1);
+    obj0 = obj_fun_handle(DOF0);
+    if obj0 < obj0_best
+        DOF0_best = DOF0;
+        obj0_best = obj0;
+        fprintf('Trial %d/%d Done. Best = %e\n', ii, nTrials, obj0_best);
+    end
+end
+fprintf('Trials (%d) Done. Best = %e\n', nTrials, obj0_best);
+
+% MAES_state = MAES_initialize(DOF0_best, 1e0, 200, 1e-5, population_size);
+MAES_state = MAES_initialize(DOF0_best, 1e-1, 200, 1e-5, population_size);
 [MAES_state, DOF_min, ~, trackers] = MAES_run(MAES_state, obj_fun_handle, true);
 
-[centroid, radius] = DOF_map(DOF_min, min_center, max_center, min_radius, max_radius);
+[centroid, radius] = DOF_map(MAES_state.x, min_center, max_center, min_radius, max_radius);
+% [centroid, radius] = DOF_map(DOF_min, min_center, max_center, min_radius, max_radius);
 
 % make debug slice through center of centroid
 mask = (X - centroid(1)).^2 + (Y - centroid(2)).^2 + (Z - centroid(3)).^2 <= radius.^2;
@@ -57,7 +78,10 @@ mask = (X - center(1)).^2 + (Y - center(2)).^2 + (Z - center(3)).^2 <= radius.^2
 
 outside_var = var(img_iso(~mask));
 
+% CHANGE TO RADIUS cubed
+% F = radius + outside_var_weight * outside_var;
 F = radius.^2 + outside_var_weight * outside_var;
+% F = radius.^3 + outside_var_weight * outside_var;
 end
 
 function [center, radius] = DOF_map(DOF, min_center, max_center, min_radius, max_radius)
