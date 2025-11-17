@@ -1,6 +1,6 @@
-% clc;
-% clear;
-function align_histone_TF(path_to_TF, path_to_histone, path_to_TF_centers, path_to_histone_centers, output_path, frames_to_align, numThreads)
+function align_histone_TF(path_to_TF, path_to_histone, path_to_TF_centers, ...
+    path_to_histone_centers, output_path, frames_to_align, numThreads, ...
+    resXY, resZ, image_format, length_scale, angle_scale)
 % path_to_TF: path to directory containing the transcription factor image sequence
 % path_to_histone: path to directory containing the histone image sequence
 % path_to_TF_centers: path to directory containing the centers for each frame of the 
@@ -17,21 +17,10 @@ addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 
-% path_to_TF = 'D:/Posfai_Lab/MouseData/230101_st19_extract/long_nanog';
-% path_to_histone = 'D:/Posfai_Lab/MouseData/230101_st19_extract/histone';
-% path_to_TF_centers = './output/230101_st19/long_nanog_centers';
-% path_to_histone_centers = './output/230101_st19/histone_centers';
-
-% output_path = './output/230101_st19/align_long_nanog_histone';
 % create output folder
 if ~exist(output_path, 'dir')
     mkdir(output_path);
 end
-
-% frames_to_align = [10,20,24,26,28,34,38,58,82,100,122];
-% frames_to_align = [72];
-% frames_to_align = first_frame:last_frame;
-% numThreads = 16;
 
 % crop box for increasing performance
 crop_height = 900;
@@ -49,14 +38,38 @@ population_size_init = [10];
 tol = 1e-5;
 
 % anisotropy parameters
-resXY = 0.208;
-resZ = 2.0;
+if isempty(resXY)
+    resXY = 0.208;
+end
+if isempty(resZ)
+    resZ = 2.0;
+end
+
+image_ext = 'klb';
+read_klb = true;
+if strcmpi(image_format, 'klb')
+    image_ext = 'klb';
+elseif strcmpi(image_format, 'tif')
+    image_ext = 'tif';
+    read_klb = false;
+elseif strcmpi(image_format, 'tiff')
+    image_ext = 'tiff';
+    read_klb = false;
+end
+
+if isempty(length_scale)
+    length_scale = 80;
+end
+
+if isempty(angle_scale)
+    angle_scale = 40;
+end
 
 % get filenames in each directory (excluding .label and .tif images)
-[histone_filenames, histone_filename_folders] = get_filenames(path_to_histone, {'klb'}, {});
-[TF_filenames, TF_filename_folders] = get_filenames(path_to_TF, {'klb'}, {});
-[histone_centers_filenames, histone_centers_filename_folders] = get_filenames(path_to_histone_centers, {'mat'}, {});
-[TF_centers_filenames, TF_centers_filename_folders] = get_filenames(path_to_TF_centers, {'mat'}, {});
+[histone_filenames, histone_filename_folders] = get_filenames(path_to_histone, {image_ext}, {'._'});
+[TF_filenames, TF_filename_folders] = get_filenames(path_to_TF, {image_ext}, {'._'});
+[histone_centers_filenames, histone_centers_filename_folders] = get_filenames(path_to_histone_centers, {'mat'}, {'._'});
+[TF_centers_filenames, TF_centers_filename_folders] = get_filenames(path_to_TF_centers, {'mat'}, {'._'});
 
 % get each filename's corresponding frame number
 histone_frames = get_frame_ids(histone_filenames);
@@ -87,7 +100,12 @@ for ii = 1:length(frames_to_align)
                                    TF_centers_filenames{TF_center_ind});
 
     % read in nuclear image
-    histone_img = readKLBstack(histone_file, numThreads);
+    if read_klb
+        histone_img = readKLBstack(histone_file, numThreads);
+    else
+        histone_img = tiffreadVolume(histone_file);
+        histone_img = permute(histone_img, [2, 1, 3]);
+    end
     
     % load histone center
     histone_center_struct = load(histone_center_file);
@@ -109,7 +127,12 @@ for ii = 1:length(frames_to_align)
     clear histone_img;
 
     % read in TF image
-    TF_img = readKLBstack(TF_file, numThreads);
+    if read_klb
+        TF_img = readKLBstack(TF_file, numThreads);
+    else
+        TF_img = tiffreadVolume(TF_file);
+        TF_img = permute(TF_img, [2, 1, 3]);
+    end
 
     % load TF center
     TF_center_struct = load(TF_center_file);
@@ -134,9 +157,6 @@ for ii = 1:length(frames_to_align)
     rigid_MAES_state_ds = cell(length(downsample_factor), 1);
     rigid_x_min_ds = cell(length(downsample_factor), 1);
     rigid_tform_ds = cell(length(downsample_factor), 1);
-
-    length_scale = 80;
-    angle_scale = 180;
     
     for jj = 1:length(downsample_factor)
         TF_ds = imresize3(TF_crop, downsample_factor(jj), 'linear');
@@ -154,6 +174,7 @@ for ii = 1:length(frames_to_align)
         % initialize parameters for optimization
         if jj == 1
             x_init = zeros(6, 1); % initial guess
+            % x_init = [0.1909; -0.2211; -0.5837; 0; 0; 0];
         else
             x_init = x_min_ds;
         end

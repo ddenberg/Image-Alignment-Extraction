@@ -1,6 +1,4 @@
-% clc;
-% clear;
-function max_projection_across_time(path_to_images, output, frames_to_extract, numThreads)
+function max_projection_across_time(path_to_images, output, frames_to_extract, numThreads, image_format)
 % path_to_images: Directory containing .klb stacks
 % output: /path/to/filename.h5 
 % frames_to_extract: [start_frame:end_frame]
@@ -8,46 +6,55 @@ function max_projection_across_time(path_to_images, output, frames_to_extract, n
 
 addpath('utils');
 
-% path_to_images = '/scratch/gpfs/ddenberg/231214_stack9/histone';
-% path_to_images = '/scratch/gpfs/ddenberg/231214_stack9/cdx2';
-
-% output = '/scratch/gpfs/ddenberg/231214_stack9/histone_maxproj.h5';
-% output = './output/230917_st10_histone.h5';
-
-% frames_to_extract = 0:120;
-% numThreads = 16;
+image_ext = 'klb';
+read_klb = true;
+if strcmpi(image_format, 'klb')
+    image_ext = 'klb';
+elseif strcmpi(image_format, 'tif')
+    image_ext = 'tif';
+    read_klb = false;
+elseif strcmpi(image_format, 'tiff')
+    image_ext = 'tiff';
+    read_klb = false;
+end
 
 % get filenames in each directory (excluding .label and .tif images)
-[histone_filenames, histone_filename_folders] = get_filenames(path_to_images, {'klb'}, {});
+[img_filenames, img_filename_folders] = get_filenames(path_to_images, {image_ext}, {'._'});
 
 % get each filename's corresponding frame number
-histone_frames = get_frame_ids(histone_filenames);
+img_frames = get_frame_ids(img_filenames);
 
 for ii = 1:length(frames_to_extract)
 
     % get nuclear, long, and short filenames
-    histone_ind = find(histone_frames == frames_to_extract(ii));
+    img_ind = find(img_frames == frames_to_extract(ii));
 
     % skip if one of the images is not present
-    if isempty(histone_ind)
+    if isempty(img_ind)
         continue;
     end
 
-    histone_file = fullfile(histone_filename_folders{histone_ind}, histone_filenames{histone_ind});
+    img_file = fullfile(img_filename_folders{img_ind}, img_filenames{img_ind});
 
-    histone_raw = readKLBstack(histone_file, numThreads);
-
-    if ~exist('maxproj', 'var')
-        maxproj = zeros(size(histone_raw), 'uint16');
+    if read_klb
+        img_raw = readKLBstack(img_file, numThreads);
+    else
+        img_raw = tiffreadVolume(img_file);
+        img_raw = permute(img_raw, [2, 1, 3]);
     end
 
-    maxproj = max(histone_raw, maxproj);
+    if ~exist('maxproj', 'var')
+        maxproj = zeros(size(img_raw), 'uint16');
+    end
 
-    fprintf('%d/%d\n', ii, length(frames_to_extract));
+    maxproj = max(img_raw, maxproj);
+
+    fprintf('Frame (%d / %d) Done!\n', frames_to_extract(ii), max(frames_to_extract, [], 'all'));
     
 end
 
-h5create(output, '/maxproj', size(maxproj), 'Datatype', 'uint16');
+chunk_size = [min(size(maxproj, 1), 64), min(size(maxproj, 2), 64), min(size(maxproj, 3), 16)];
+h5create(output, '/maxproj', size(maxproj), 'Datatype', 'uint16', 'Chunksize', chunk_size, 'Deflate', 5);
 h5write(output, '/maxproj', maxproj);
 
 end

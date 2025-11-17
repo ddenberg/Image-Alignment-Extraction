@@ -1,7 +1,6 @@
-% clc;
-% clear;
 function compute_image_centroids_maxproj(maxproj_file, image_path, output_path, ...
-    frames_to_compute, numThreads, varargin)
+    frames_to_compute, numThreads, resXY, resZ, image_format, ...
+    overwrite_centroid, overwrite_centroid_tolerance)
 % maxproj_file: /path/to/filename.h5 generated from max_projection_across_time.m
 % image_path: path to image directory containing images from a single channel/camera
 % output_path: where to save the output centers
@@ -15,40 +14,45 @@ addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 
-
-% maxproj_file = 'D:\Posfai_Lab\MouseData\230917_st10\histone_maxproj_permute.tif';
-% image_path = '/scratch/gpfs/ddenberg/230521/st8/histone';
-
-% output_path = './output/230917_st10/histone_centers';
 % create output folder
 if ~exist(output_path, 'dir')
     mkdir(output_path);
 end
 
-% frames_to_compute = 0:140;
-% frames_to_compute = first_frame:last_frame; %,118,121,123,125,126,127,128,129,130];
-% numThreads = 6;
-
 % centroid paramters
 downsample_factor = 0.1;
-outside_var_weight = 1e4;
-max_zscore = 25;
+outside_var_weight = 1e5;
+max_zscore = 100;
 min_percentile = 1;
 max_percentile = 99;
 min_radius = 150;
-max_radius = 400;
+max_radius = 400; % 400
 population_size = 16;
 
 % anisotropy parameters
-resXY = 0.208;
-resZ = 2.0;
+if isempty(resXY)
+    resXY = 0.208;
+end
+if isempty(resZ)
+    resZ = 2.0;
+end
 
-% read in nuclear images
-% img = readKLBstack(maxproj_file, numThreads);
-% img = tiffreadVolume(maxproj_file);
+image_ext = 'klb';
+read_klb = true;
+if strcmpi(image_format, 'klb')
+    image_ext = 'klb';
+elseif strcmpi(image_format, 'tif')
+    image_ext = 'tif';
+    read_klb = false;
+elseif strcmpi(image_format, 'tiff')
+    image_ext = 'tiff';
+    read_klb = false;
+end
+
+% read in max projection
 img = h5read(maxproj_file, '/maxproj');
 
-% normalize images
+% normalize max projection
 P = prctile(img, [min_percentile, max_percentile], 'all');
 
 img = single(img);
@@ -57,17 +61,10 @@ img_bg_std = std(img(img >= P(1) & img <= P(2)), [], 'all');
 img = (img - img_bg_mean) / img_bg_std;
 img = max(min(img, max_zscore), 0); % clip large z-scores and clip at 0
 
-overwrite_centroid = [];
-overwrite_centroid_tolerance = [];
-if ~isempty(varargin)
-    overwrite_centroid = varargin{1};
+if ~isempty(overwrite_centroid)
     overwrite_centroid = overwrite_centroid(:);
     if ~all(size(overwrite_centroid) == [3, 1])
         error('overwrite_centroid does not have the correct shape. Must be [3, 1]');
-    end
-
-    if length(varargin) == 2
-        overwrite_centroid_tolerance = varargin{2};
     end
 end
 
@@ -80,7 +77,7 @@ save(fullfile(output_path, 'maxproj'), 'img_centroid', 'MAES_state', 'trackers',
     'debug_stack');
 
 % get filenames in each directory (excluding .label and .tif images)
-[img_filenames, img_filename_folders] = get_filenames(image_path, {'klb'}, {});
+[img_filenames, img_filename_folders] = get_filenames(image_path, {image_ext}, {'._'});
 
 % get each filename's corresponding frame number
 img_frames = get_frame_ids(img_filenames);
@@ -99,7 +96,12 @@ for ii = 1:length(frames_to_compute)
     img_file = fullfile(img_filename_folders{img_ind}, img_filenames{img_ind});
 
     % read in nuclear images
-    img = readKLBstack(img_file, numThreads);
+    if read_klb
+        img = readKLBstack(img_file, numThreads);
+    else
+        img = tiffreadVolume(img_file);
+        img = permute(img, [2, 1, 3]);
+    end
     
     % normalize images
     P = prctile(img, [min_percentile, max_percentile], 'all');

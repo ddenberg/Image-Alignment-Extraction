@@ -1,30 +1,30 @@
-% clc;
-% clear;
-function extract_histone(path_to_histone, path_to_segmentation, output_path, output_name, frames_to_extract, numThreads)
+function extract_histone(path_to_histone, path_to_segmentation, output_path, ...
+    output_name, frames_to_extract, numThreads, image_format)
 
 addpath('utils');
 addpath('loss_functions');
 addpath('MA-ES');
 
-% path_to_histone = '/scratch/gpfs/ddenberg/230101_st19_extract/histone';
-% path_to_segmentation = '/scratch/gpfs/ddenberg/230101_st19_extract/segmentation';
-
-% output_path = './output/230101_st19/output_extraction';
 % create output folder
 if ~exist(output_path, 'dir')
     mkdir(output_path);
 end
 
-% frames_to_extract = 0:108;
-% numThreads = 16;
-
-% gmm parameters
-tol_bm = 0.4; % bimodality coefficient threshold
-tol_diff = 0.1; % gmm weight difference threshold
+image_ext = 'klb';
+read_klb = true;
+if strcmpi(image_format, 'klb')
+    image_ext = 'klb';
+elseif strcmpi(image_format, 'tif')
+    image_ext = 'tif';
+    read_klb = false;
+elseif strcmpi(image_format, 'tiff')
+    image_ext = 'tiff';
+    read_klb = false;
+end
 
 % get filenames in each directory (excluding .label and .tif images)
-[seg_filenames, seg_filename_folders] = get_filenames(path_to_segmentation, {'klb'}, {});
-[histone_filenames, histone_filename_folders] = get_filenames(path_to_histone, {'klb'}, {});
+[seg_filenames, seg_filename_folders] = get_filenames(path_to_segmentation, {image_ext}, {'._'});
+[histone_filenames, histone_filename_folders] = get_filenames(path_to_histone, {image_ext}, {'._'});
 
 % get each filename's corresponding frame number
 seg_frames = get_frame_ids(seg_filenames);
@@ -50,35 +50,32 @@ for ii = 1:length(frames_to_extract)
     histone_file = fullfile(histone_filename_folders{histone_ind}, histone_filenames{histone_ind});
 
     % read in nuclear, long, and short images
-    seg_img = readKLBstack(seg_file, numThreads);
-    histone_img = readKLBstack(histone_file, numThreads);
+    if read_klb
+        seg_img = readKLBstack(seg_file, numThreads);
+        histone_img = readKLBstack(histone_file, numThreads);
+    else
+        seg_img = tiffreadVolume(seg_file);
+        seg_img = permute(seg_img, [2, 1, 3]);
+
+        histone_img = tiffreadVolume(histone_file);
+        histone_img = permute(histone_img, [2, 1, 3]);
+    end
 
     % use regionprops3 to extract values in long
-    stats_histone_nowarp = regionprops3(seg_img, histone_img, {'Volume', 'MeanIntensity', 'VoxelValues', 'Centroid'});
+    stats_histone_nowarp = regionprops3(seg_img, histone_img, ...
+        {'Volume', 'MeanIntensity', 'VoxelValues', 'Centroid'});
 
     ids = (1:size(stats_histone_nowarp, 1)).';
     filter_ids = ~isnan(stats_histone_nowarp.MeanIntensity);
     ids = ids(filter_ids);
     stats_histone_nowarp = stats_histone_nowarp(filter_ids,:);
 
-    % do gmm filtering
-    histone_nowarp_gmm = zeros(length(ids), 1);
-    histone_nowarp_bm = zeros(length(ids), 1);
-
-    for jj = 1:length(ids) 
-
-        % nowarp
-        X = double(stats_histone_nowarp.VoxelValues{jj});
-        [mu, bm] = fit_gmm2_1D(X, tol_bm, tol_diff);
-        histone_nowarp_gmm(jj) = mu;
-        histone_nowarp_bm(jj) = bm;
-    end
-
     extract_list{ii} = table(repmat(frames_to_extract(ii), length(ids), 1), ids, ...
-        stats_histone_nowarp.Volume, stats_histone_nowarp.MeanIntensity, histone_nowarp_gmm, histone_nowarp_bm, ...
+        stats_histone_nowarp.Volume, stats_histone_nowarp.MeanIntensity, ...
+        histone_nowarp_gmm, histone_nowarp_bm, ...
         stats_histone_nowarp.Centroid, ...
         'VariableNames', {'Frame', 'ID', ...
-        'Volume_nowarp', 'MeanIntensity_nowarp', 'GMMIntensity_nowarp', 'Bimodality_nowarp', 'Centroid'});
+        'Volume_nowarp', 'MeanIntensity_nowarp', 'Centroid'});
 
     fprintf('Frame %d/%d, Long Cam Done!\n', frames_to_extract(ii), max(frames_to_extract));
 
