@@ -1,5 +1,5 @@
 function extract_histone(path_to_histone, path_to_segmentation, output_path, ...
-    output_name, frames_to_extract, numThreads, image_format)
+    output_name, frames_to_extract, numThreads, resXY_img, resZ_img, resXY_seg, resZ_seg, image_format)
 
 addpath('utils');
 addpath('loss_functions');
@@ -8,6 +8,22 @@ addpath('MA-ES');
 % create output folder
 if ~exist(output_path, 'dir')
     mkdir(output_path);
+end
+
+% anisotropy parameters for raw image
+if isempty(resXY_img)
+    resXY_img = 0.208;
+end
+if isempty(resZ_img)
+    resZ_img = 2.0;
+end
+
+% anisotropy parameters for segmentation
+if isempty(resXY_seg)
+    resXY_seg = 0.208;
+end
+if isempty(resZ_seg)
+    resZ_seg = 2.0;
 end
 
 image_ext = 'klb';
@@ -61,8 +77,14 @@ for ii = 1:length(frames_to_extract)
         histone_img = permute(histone_img, [2, 1, 3]);
     end
 
+    % create isotropic versions of each image
+    seg_img_iso = isotropicSample_nearest(seg_img, resXY_seg, resZ_seg, 1);
+    histone_img_iso = isotropicSample_bilinear(histone_img, resXY_img, resZ_img, 1);
+
+    clear seg_img TF_img
+
     % use regionprops3 to extract values in long
-    stats_histone_nowarp = regionprops3(seg_img, histone_img, ...
+    stats_histone_nowarp = regionprops3(seg_img_iso, histone_img_iso, ...
         {'Volume', 'MeanIntensity', 'VoxelValues', 'Centroid'});
 
     ids = (1:size(stats_histone_nowarp, 1)).';
