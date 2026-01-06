@@ -1,6 +1,6 @@
 function extract_long_short(path_to_long, path_to_short, path_to_segmentation, ...
     align_histone_LS_path, align_LS_path, output_path, frames_to_align, numThreads, ...
-    resXY, resZ, image_format)
+    resXY_img, resZ_img, resXY_seg, resZ_seg, image_format)
 
 addpath('utils');
 addpath('loss_functions');
@@ -13,12 +13,20 @@ end
 
 long_short_struct = load(align_LS_path);
 
-% anisotropy parameters
-if isempty(resXY)
-    resXY = 0.208;
+% anisotropy parameters for raw imagg
+if isempty(resXY_img)
+    resXY_img = 0.208;
 end
-if isempty(resZ)
-    resZ = 2.0;
+if isempty(resZ_img)
+    resZ_img = 2.0;
+end
+
+% anisotropy parameters for segmentation
+if isempty(resXY_seg)
+    resXY_seg = 0.208;
+end
+if isempty(resZ_seg)
+    resZ_seg = 2.0;
 end
 
 image_ext = 'klb';
@@ -94,13 +102,13 @@ for ii = 1:length(frames_to_align)
     % crop images
     [seg_crop_iso, seg_hpair, seg_wpair, seg_dpair] = isotropic_crop(seg_img, ...
         tform_struct.histone_centroid, tform_struct.crop_height, ...
-        tform_struct.crop_width, tform_struct.crop_depth, resXY, resZ, 'nearest');
+        tform_struct.crop_width, tform_struct.crop_depth, resXY_seg, resZ_seg, 'nearest');
     [long_crop_iso, long_hpair, long_wpair, long_dpair] = isotropic_crop(long_img, ...
         tform_struct.long_centroid, tform_struct.crop_height, ...
-        tform_struct.crop_width, tform_struct.crop_depth, resXY, resZ, 'bilinear');
+        tform_struct.crop_width, tform_struct.crop_depth, resXY_img, resZ_img, 'bilinear');
     [short_crop_iso, ~, ~, ~] = isotropic_crop(short_img, ...
         tform_struct.long_centroid, tform_struct.crop_height, ...
-        tform_struct.crop_width, tform_struct.crop_depth, resXY, resZ, 'bilinear');
+        tform_struct.crop_width, tform_struct.crop_depth, resXY_img, resZ_img, 'bilinear');
 
     clear long_img short_img seg_img;
 
