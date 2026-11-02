@@ -2,7 +2,7 @@ function [centroid, MAES_state, trackers, debug_stack] = image_centroid(img, res
     downsample_factor, outside_var_weight, min_radius, max_radius, population_size, ...
     overwrite_centroid, overwrite_centroid_tolerance)
 
-img = isotropicSample_bilinear(img, resXY, resZ, downsample_factor);
+img = isotropicSample(img, resXY, resZ, downsample_factor, 'linear');
 
 [X, Y, Z] = ndgrid(1:size(img, 1), 1:size(img, 2), 1:size(img, 3));
 
