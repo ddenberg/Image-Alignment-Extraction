@@ -8,8 +8,15 @@ center = round(center);
 % Calculate start and end indices for cropping (xy only)
 startRow = max(center(1) - floor(height / 2), 1);
 endRow = min(center(1) + floor(height / 2), imgHeight);
+if startRow > imgHeight
+    warning('You are attempting to crop starting outside of the image bounds. [row]');
+end
+
 startCol = max(center(2) - floor(width / 2), 1);
 endCol = min(center(2) + floor(width / 2), imgWidth);
+if startCol > imgWidth
+    warning('You are attempting to crop starting outside of the image bounds. [column]');
+end
 
 % Crop the image (xy only)
 img_crop = img(startRow:endRow, startCol:endCol, :);
@@ -29,9 +36,11 @@ img_crop = padarray(img_crop, [padAfterRow, padAfterCol, 0], 0, 'post');
 
 % transform to isotropic resolution
 if strcmp(interp, 'bilinear')
-    img_crop = isotropicSample_bilinear(img_crop, resXY, resZ, 1);
+    % img_crop = isotropicSample_bilinear(img_crop, resXY, resZ, 1);
+    img_crop = isotropicSample(img_crop, resXY, resZ, 1, 'linear');
 elseif strcmp(interp, 'nearest')
-    img_crop = isotropicSample_nearest(img_crop, resXY, resZ, 1);
+    % img_crop = isotropicSample_nearest(img_crop, resXY, resZ, 1);
+    img_crop = isotropicSample(img_crop, resXY, resZ, 1, 'nearest');
 else
     error("interp must be one of 'bilinear' or 'nearest'.");
 end
@@ -41,6 +50,9 @@ end
 % Calculate start and end indices for cropping (z only)
 startDepth = max(center(3) - floor(depth / 2), 1);
 endDepth = min(center(3) + floor(depth / 2), imgDepth);
+if startDepth > imgDepth
+    warning('You are attempting to crop starting outside of the image bounds. [depth]');
+end
 
 % Crop the image (z only)
 img_crop = img_crop(:, :, startDepth:endDepth);
