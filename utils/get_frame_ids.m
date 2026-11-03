@@ -1,14 +1,16 @@
 function ids = get_frame_ids(names)
 
-ids = zeros(length(names), 1);
+ids = nan(length(names), 1);
 
 for ii = 1:length(names)
 
-    % Find all groups of consecutive digits in the filename
-    tokens = regexp(names{ii}, '\d+', 'match');
+    % Find digits immediately before the file extension
+    tokens = regexp(names{ii}, '_(\d+)\.[^.]+$', 'tokens');
 
-    % Extract the last group of digits as the frame number
-    ids(ii) = str2double(tokens{end});
+    % Extract the frame number if one exists
+    if ~isempty(tokens)
+        ids(ii) = str2double(tokens{1}{1});
+    end
 
 end
 
